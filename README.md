@@ -1,7 +1,7 @@
 # GMinZip
 Statically minify and gzip your web site files (html, css, js, jpeg, etc...)
 
-This project relies on Taco de Wolff's minify project: https://github.com/tdewolff/minify
+This project relies on Taco de Wolff's minify project: https://github.com/tdewolff/minify  
 You may also want to look at minify-cmd project: https://github.com/tdewolff/minify/tree/master/cmd/minify
 
 ## Usage
@@ -58,6 +58,6 @@ You may also want to look at minify-cmd project: https://github.com/tdewolff/min
 
 ## TODO
 
-* Add brotli support as soon as a native brotli package added to golang
+* Add brotli support as soon as a native brotli package added to golang.  
   see issue: https://github.com/google/brotli/issues/182
 

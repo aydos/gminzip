@@ -2,18 +2,15 @@ package main
 
 import (
 	"bufio"
+	//"compress/brotli"
 	"compress/gzip"
 	"fmt"
-	//"io"
 	"io/ioutil"
-	//"log"
-	//"net/url"
 	"os"
-	//"os/signal"
 	"path"
 	"path/filepath"
 	"regexp"
-	//"sort"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -42,21 +39,27 @@ type task struct {
 	name string
 	mime string
 	ext  string
+	dst  string
 	min  bool
 	zip  bool
 }
 
 var (
-	m     *minify.M
-	tasks []task
-	//recursive bool
-	//delete bool
-
+	m          *minify.M
+	tasks      []task
+	delete     bool
+	silent     bool
+	brotli     bool
+	clean      bool
 	minextsall = []string{"css", "htm", "html", "js", "json", "svg", "xml"}
 	zipextsall = false
 	minexts    []string
 	zipexts    []string
-	size       = 0
+	size       int64
+	list       bool
+	listexts   map[string]int
+	mincount   int
+	zipcount   int
 )
 
 func main() {
@@ -64,17 +67,23 @@ func main() {
 	minfiles := ""
 	zipfiles := ""
 
+	listexts = make(map[string]int)
+
 	pflag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: gminzip [options] inputs\n\nOptions:\n")
 		pflag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nInput:\n  Files or directories\n\n")
+		fmt.Fprintf(os.Stderr, "Visit https://github.com/aydos/gminzip for more example.\n\n")
+
 	}
-	//pflag.StringVarP(&output, "output", "o", "", "Output file or directory (must have trailing slash)")
 	pflag.StringVarP(&minfiles, "min", "m", "", "Files to minify (ex: -m css,html,js) (default: css,htm,html,js,json,svg,xml)")
 	pflag.StringVarP(&zipfiles, "zip", "z", "", "Files to gzip (ex: -z jpg,js) (ex: -z all) (default: min option)")
-	pflag.IntVarP(&size, "size", "s", 0, "Min file size in bytes for gzip (default: 0)")
-	//pflag.BoolVarP(&recursive, "recursive", "r", true, "Recursively gminzip directories (true by default)")
-	//pflag.BoolVarP(&delete, "delete", "", false, "Delete the original file")
+	pflag.Int64VarP(&size, "size", "s", 0, "Min file size in bytes for gzip (default: 0)")
+	pflag.BoolVarP(&list, "list", "l", false, "List all file extensions and count files in inputs")
+	pflag.BoolVarP(&delete, "delete", "", false, "Delete the original file after gzip")
+	pflag.BoolVarP(&silent, "silent", "", false, "Do not display info, but show the errors")
+	//pflag.BoolVarP(&brotli, "brotli", "b", false, "Use brotli to zip instead of gzip")
+	pflag.BoolVarP(&clean, "clean", "", false, "Delete the ziped files (.gz, .br) before process")
 
 	pflag.Parse()
 	inputs := pflag.Args()
@@ -106,13 +115,12 @@ func main() {
 		zipexts = strings.Split(zipfiles, ",")
 	}
 
-	//fmt.Printf("minexts: %v\n\n", minexts)
-	//fmt.Printf("zipexts: %v\n\n", zipexts)
+	// visit each input and build the task list
 	for _, input := range inputs {
 		_ = filepath.Walk(input, visitfiles)
-		//fmt.Printf("filepath.Walk() returned %v\n", err)
 	}
 
+	//minifier
 	m = minify.New()
 	htmlMinifier := &html.Minifier{KeepDefaultAttrVals: false, KeepWhitespace: false, KeepDocumentTags: true}
 	xmlMinifier := &xml.Minifier{KeepWhitespace: false}
@@ -123,13 +131,26 @@ func main() {
 	m.AddFuncRegexp(regexp.MustCompile("[/+]json$"), json.Minify)
 	m.AddRegexp(regexp.MustCompile("[/+]xml$"), xmlMinifier)
 
+	// processing tasks
 	var fails int32
 	var wg sync.WaitGroup
 	for _, t := range tasks {
 		wg.Add(1)
 		go func(t task) {
 			defer wg.Done()
-			fmt.Printf("%#v\n", t)
+			if !silent {
+				if t.min {
+					fmt.Printf("M")
+				} else {
+					fmt.Printf(" ")
+				}
+				if t.zip {
+					fmt.Printf("Z ")
+				} else {
+					fmt.Printf("  ")
+				}
+				fmt.Printf("%s\n", t.name)
+			}
 			if ok := gminzip(t); !ok {
 				atomic.AddInt32(&fails, 1)
 			}
@@ -137,8 +158,29 @@ func main() {
 	}
 	wg.Wait()
 
+	if !silent {
+		fmt.Println("RESULT:")
+		fmt.Printf(" %6d files were processed\n", len(tasks))
+		fmt.Printf(" %6d files were minified\n", mincount)
+		fmt.Printf(" %6d files were zipped\n", zipcount)
+	}
+
+	// show file extensions and file counts
+	if list {
+		var exts []string
+		for e := range listexts {
+			exts = append(exts, e)
+		}
+		sort.Strings(exts)
+		fmt.Println("\nFile extensions & counts:")
+		for _, ext := range exts {
+			fmt.Printf(" %6d %s\n", listexts[ext], ext)
+		}
+		fmt.Println()
+	}
+
 	if fails > 0 {
-		os.Exit(1)
+		fmt.Println("CAUTION: There are ERRORs...")
 	}
 }
 
@@ -166,11 +208,23 @@ func visitfiles(p string, f os.FileInfo, err error) error {
 		t.ext = path.Ext(f.Name())
 		if len(t.ext) > 0 {
 			t.ext = t.ext[1:]
+			if list { // count files via extensions
+				listexts[t.ext]++
+			}
+			if t.ext == "gz" || t.ext == "br" { // dont process zipped files
+				if clean {
+					err = os.Remove(t.name)
+					if err != nil {
+						fmt.Println("ERROR : Cant delete zipped file", t.name)
+					}
+				}
+				return nil
+			}
 			if contains(minexts, t.ext) {
 				t.min = true
 				t.mime = mimetypes[t.ext]
 			}
-			if zipextsall || (contains(zipexts, t.ext) && f.Size() > int64(size)) {
+			if zipextsall || (contains(zipexts, t.ext) && f.Size() > size) {
 				t.zip = true
 			}
 		}
@@ -182,37 +236,81 @@ func visitfiles(p string, f os.FileInfo, err error) error {
 }
 
 func gminzip(t task) bool {
-
-	success := true
-
 	if t.min {
 		mi := t.name
 		mo := mi + ".bak"
-		fi, _ := os.Open(mi)
+		fi, err := os.Open(mi)
+		if err != nil {
+			fmt.Println("ERROR : Cant open", mi)
+			return false
+		}
 		defer fi.Close()
-		fo, _ := os.Create(mo)
+		fo, err := os.Create(mo)
+		if err != nil {
+			fmt.Println("ERROR : Cant crate", mo)
+			return false
+		}
 		defer fo.Close()
 		r := bufio.NewReader(fi)
 		w := bufio.NewWriter(fo)
-		_ = m.Minify(t.mime, w, r)
+		err = m.Minify(t.mime, w, r)
+		if err != nil {
+			fmt.Println("ERROR : Cant minify", mi)
+			return false
+		}
 		w.Flush()
-		_ = os.Remove(mi)
-		_ = os.Rename(mo, mi)
+		err = os.Remove(mi)
+		if err != nil {
+			fmt.Println("ERROR : Cant delete original file", mi)
+			return false
+		}
+		err = os.Rename(mo, mi)
+		if err != nil {
+			fmt.Println("ERROR : Cant rename ", mo)
+			return false
+		}
+		mincount++
 	}
-
 	if t.zip {
 		zi := t.name
 		zo := zi + ".gz"
-		fi, _ := os.Open(zi)
+		fi, err := os.Open(zi)
 		defer fi.Close()
-		fo, _ := os.Create(zo)
+		if err != nil {
+			fmt.Println("ERROR : Cant open", zi)
+			return false
+		}
+		fo, err := os.Create(zo)
+		if err != nil {
+			fmt.Println("ERROR : Cant crate", zo)
+			return false
+		}
 		defer fo.Close()
 		r := bufio.NewReader(fi)
-		c, _ := ioutil.ReadAll(r)
-		w, _ := gzip.NewWriterLevel(fo, gzip.BestCompression)
-		defer w.Close()
-		w.Write(c)
+		c, err := ioutil.ReadAll(r)
+		if err != nil {
+			fmt.Println("ERROR : Cant read content of", zi)
+			return false
+		}
+		if !brotli {
+			w, err := gzip.NewWriterLevel(fo, gzip.BestCompression)
+			defer w.Close()
+			if err != nil {
+				fmt.Println("ERROR : Cant gzip", zi)
+				return false
+			}
+			w.Write(c)
+		} else {
+			//w, err := brotli.NewWriter(fo)
+		}
+		if delete {
+			err = os.Remove(zi)
+			if err != nil {
+				fmt.Println("ERROR : Cant delete after gzip", zi)
+				return false
+			}
+		}
+		zipcount++
 	}
-
-	return success
+	return true
 }

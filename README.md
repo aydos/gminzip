@@ -14,7 +14,7 @@ You may also want to look at minify-cmd project: https://github.com/tdewolff/min
 	  -z, --zip
 			Files to zip (gzip) (ex: -z all) (default: copy of min option)
 	  -s, --size
-			Min file size in bytes for zip (default: 0)
+			Minimum file size in bytes for zip (default: 0)
 	  -x, --maxsize
 			Maximum file size in bytes for minify and zip
 	  -l, --list

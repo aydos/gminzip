@@ -12,17 +12,19 @@ You may also want to look at minify-cmd project: https://github.com/tdewolff/min
 	  -m, --min
 			Files to minify (ex: -m css,html,js) (default: css,htm,html,js,json,svg,xml)
 	  -z, --zip
-			Files to gzip (ex: -z jpg,js) (ex: -z all) (default: min option)
+			Files to zip (gzip) (ex: -z all) (default: copy of min option)
 	  -s, --size
-			Min file size in bytes for gzip (default: 0)
+			Min file size in bytes for zip (default: 0)
+	  -x, --maxsize
+			Maximum file size in bytes for minify and zip
 	  -l, --list
 			List all file extensions and count files in inputs
 	  --delete
-	  		Delete the original file after gzip
+			Delete the original file after zip
 	  --silent
-	  		Do not display info, but show the errors
+			Do not display info, but show the errors
 	  --clean
-	  		Delete the ziped files (.gz, .br) before process
+			Delete the ziped files (.gz, .br) before process
 
 	Inputs:
 	  Files or directories
@@ -55,6 +57,7 @@ You may also want to look at minify-cmd project: https://github.com/tdewolff/min
 * GMinZip is recursive by default
 * Minifying a file overwrite the original
 * If no -z file specified, -m option is used
+* May have problems with large files (use maxsize option)
 
 ## TODO
 

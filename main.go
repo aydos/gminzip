@@ -52,10 +52,11 @@ var (
 	brotli     bool
 	clean      bool
 	minextsall = []string{"css", "htm", "html", "js", "json", "svg", "xml"}
-	zipextsall = false
+	zipextsall bool
 	minexts    []string
 	zipexts    []string
-	size       int64
+	minsize    int64
+	maxsize    int64
 	list       bool
 	listexts   map[string]int
 	mincount   int
@@ -77,10 +78,11 @@ func main() {
 
 	}
 	pflag.StringVarP(&minfiles, "min", "m", "", "Files to minify (ex: -m css,html,js) (default: css,htm,html,js,json,svg,xml)")
-	pflag.StringVarP(&zipfiles, "zip", "z", "", "Files to gzip (ex: -z jpg,js) (ex: -z all) (default: min option)")
-	pflag.Int64VarP(&size, "size", "s", 0, "Min file size in bytes for gzip (default: 0)")
+	pflag.StringVarP(&zipfiles, "zip", "z", "", "Files to zip (gzip) (ex: -z all) (default: copy of min option)")
+	pflag.Int64VarP(&minsize, "size", "s", 0, "Minimum file size in bytes for zip (default: 0)")
+	pflag.Int64VarP(&maxsize, "maxsize", "x", 0, "Maximum file size in bytes for minify and zip")
 	pflag.BoolVarP(&list, "list", "l", false, "List all file extensions and count files in inputs")
-	pflag.BoolVarP(&delete, "delete", "", false, "Delete the original file after gzip")
+	pflag.BoolVarP(&delete, "delete", "", false, "Delete the original file after zip")
 	pflag.BoolVarP(&silent, "silent", "", false, "Do not display info, but show the errors")
 	//pflag.BoolVarP(&brotli, "brotli", "b", false, "Use brotli to zip instead of gzip")
 	pflag.BoolVarP(&clean, "clean", "", false, "Delete the ziped files (.gz, .br) before process")
@@ -208,11 +210,13 @@ func visitfiles(p string, f os.FileInfo, err error) error {
 		t.ext = path.Ext(f.Name())
 		if len(t.ext) > 0 {
 			t.ext = t.ext[1:]
-			if list { // count files via extensions
+			// count files via extensions
+			if list {
 				listexts[t.ext]++
 			}
-			if t.ext == "gz" || t.ext == "br" { // dont process zipped files
-				if clean {
+			// dont minify or zip zipped files
+			if t.ext == "gz" || t.ext == "br" {
+				if clean { // but delete them if you want
 					err = os.Remove(t.name)
 					if err != nil {
 						fmt.Println("ERROR : Cant delete zipped file", t.name)
@@ -220,12 +224,22 @@ func visitfiles(p string, f os.FileInfo, err error) error {
 				}
 				return nil
 			}
+			// if maxsize defined
+			if maxsize > 0 {
+				if f.Size() > maxsize {
+					return nil
+				}
+			}
+			// check for minify
 			if contains(minexts, t.ext) {
 				t.min = true
 				t.mime = mimetypes[t.ext]
 			}
-			if zipextsall || (contains(zipexts, t.ext) && f.Size() > size) {
-				t.zip = true
+			// check for zip
+			if contains(zipexts, t.ext) || zipextsall {
+				if f.Size() > minsize {
+					t.zip = true
+				}
 			}
 		}
 		if t.min || t.zip {

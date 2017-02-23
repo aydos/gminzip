@@ -31,32 +31,42 @@ You may also want to look at minify-cmd project: https://github.com/tdewolff/min
 
 ## Examples
 
+Minify and zip all "css,htm,html,js,json,svg,xml" files in /var/www:
+
 	gminzip /var/www
-		Minify and gzip all "css,htm,html,js,json,svg,xml" files in /var/www
+
+Minify and zip all "css,html" files in /var/www:
+
+	gminzip -m css,html /var/www
+
+Zip every file with an extention (.jpeg, .swf, .html, ...) ("all" must be alone) but do not minify in /var/www:
 
 	gminzip -m none -z all /var/www
-		Gzip every file in /var/www with an extention (.jpeg, .swf, .html, ...) but do not minify
+
+Minify and zip "css,html" files in /var/www/site1 and /var/www/site2 and index.html file in the current directory:
 
 	gminzip -m css,html /var/www/site1 /var/www/site2 index.html
-		Minify and gzip css and html files in /var/www/site1 and /var/www/site2 and index.html file in the current directory
 
-	gminzip -m css,html -z json /var/www/site1
-		Minify css and html files, gzip only json files in /var/www/site1
+Minify "css,html" files, but zip only json files (and *.all files, not every file) in /var/www/site1:
+
+	gminzip -m css,html -z all,json /var/www/site1
+
+Minify all "css,htm,html,js,json,svg,xml" files and gzip the result if size larger than 120 bytes:
 
 	gminzip -s 120 /var/www
-		Minify all "css,htm,html,js,json,svg,xml" files and gzip the result if size larger than 120 bytes
 
-	gminzip -l -m none /var/www
-		List all extensions and file counts in /var/www/ but no minify, no gzip
+List all extensions and file counts, minify "css,htm,html,js,json,svg,xml" files and zip "js" files:
 
-	gminzip -l -m none -z js /var/www
-		List all extensions and file counts in /var/www/ and gzip js files, but no minify
+	gminzip -l -z js /var/www
 
 ## Notes
 
+* ALWAYS take backups
+* Only "css,htm,html,js,json,svg,xml" files can minified
+* Do not minify the minified files
 * GMinZip is recursive by default
 * Minifying a file overwrite the original
-* If no -z file specified, -m option is used
+* If no -z file specified, file types in the -m option are zipped
 * May have problems with large files (use maxsize option)
 
 ## TODO

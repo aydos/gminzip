@@ -141,17 +141,19 @@ func main() {
 		go func(t task) {
 			defer wg.Done()
 			if !silent {
+				info := ""
 				if t.min {
-					fmt.Printf("M")
+					info += "M"
 				} else {
-					fmt.Printf(" ")
+					info += " "
 				}
 				if t.zip {
-					fmt.Printf("Z ")
+					info += "Z "
 				} else {
-					fmt.Printf("  ")
+					info += "  "
 				}
-				fmt.Printf("%s\n", t.name)
+				info += t.name
+				fmt.Println(info)
 			}
 			if ok := gminzip(t); !ok {
 				atomic.AddInt32(&fails, 1)
@@ -160,11 +162,10 @@ func main() {
 	}
 	wg.Wait()
 
-	if !silent {
-		fmt.Println("RESULT:")
-		fmt.Printf(" %6d files were processed\n", len(tasks))
-		fmt.Printf(" %6d files were minified\n", mincount)
-		fmt.Printf(" %6d files were zipped\n", zipcount)
+	if !silent && !(list && len(tasks) == 0) {
+		fmt.Printf("%6d files were processed\n", len(tasks))
+		fmt.Printf("%6d files were minified\n", mincount)
+		fmt.Printf("%6d files were zipped\n\n", zipcount)
 	}
 
 	// show file extensions and file counts
@@ -174,15 +175,14 @@ func main() {
 			exts = append(exts, e)
 		}
 		sort.Strings(exts)
-		fmt.Println("\nFile extensions & counts:")
+		fmt.Println("File extensions & counts:")
 		for _, ext := range exts {
-			fmt.Printf(" %6d %s\n", listexts[ext], ext)
+			fmt.Printf("%6d %s\n", listexts[ext], ext)
 		}
-		fmt.Println()
 	}
 
 	if fails > 0 {
-		fmt.Println("CAUTION: There are ERRORs...")
+		fmt.Println("\nCAUTION: There are ERRORs...")
 	}
 }
 

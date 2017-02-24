@@ -12,8 +12,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
-	"sync/atomic"
 
 	"github.com/spf13/pflag"
 	"github.com/tdewolff/minify"
@@ -134,12 +132,13 @@ func main() {
 	m.AddRegexp(regexp.MustCompile("[/+]xml$"), xmlMinifier)
 
 	// processing tasks
-	var fails int32
-	var wg sync.WaitGroup
+	fails := 0
+	concurrency := 16
+	sem := make(chan bool, concurrency)
 	for _, t := range tasks {
-		wg.Add(1)
+		sem <- true
 		go func(t task) {
-			defer wg.Done()
+			defer func() { <-sem }()
 			if !silent {
 				info := ""
 				if t.min {
@@ -156,11 +155,13 @@ func main() {
 				fmt.Println(info)
 			}
 			if ok := gminzip(t); !ok {
-				atomic.AddInt32(&fails, 1)
+				fails++
 			}
 		}(t)
 	}
-	wg.Wait()
+	for i := 0; i < cap(sem); i++ {
+		sem <- true
+	}
 
 	if !silent && !(list && len(tasks) == 0) {
 		fmt.Printf("%6d files were processed\n", len(tasks))

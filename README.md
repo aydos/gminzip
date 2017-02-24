@@ -63,10 +63,10 @@ List all extensions and file counts, minify "css,htm,html,js,json,svg,xml" files
 
 * ALWAYS take backups
 * Only "css,htm,html,js,json,svg,xml" files can minified
-* Do not minify the minified files
-* GMinZip is recursive by default
 * Minifying a file overwrite the original
+* GMinZip is recursive by default
 * If no -z file specified, file types in the -m option are zipped
+* To minify the minified files may cause problems
 * May have problems with large files (use maxsize option)
 
 ## TODO

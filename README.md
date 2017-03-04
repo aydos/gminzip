@@ -33,6 +33,10 @@ You may also want to look at minify-cmd project: https://github.com/tdewolff/min
 
 Gminzip works with extentions and file extentions must be specified with -m and/or -z options
 
+Do nothing. You must specify the extentions with -m and/or -z options:
+
+    gminzip index.html
+
 Minify and zip all "html" files in current working directory:
 
     gminzip -m html -z html .
@@ -74,4 +78,3 @@ List all extensions and file counts and zip "js" files:
 
 * Add brotli support as soon as a native brotli package added to golang.  
   see issue: https://github.com/google/brotli/issues/182
-

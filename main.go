@@ -5,7 +5,7 @@ import (
 	//"compress/brotli"
 	"compress/gzip"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -62,10 +62,8 @@ var (
 )
 
 func main() {
-
 	minfiles := ""
 	zipfiles := ""
-
 	listexts = make(map[string]int)
 
 	pflag.Usage = func() {
@@ -73,10 +71,9 @@ func main() {
 		pflag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nInput:\n  Files or directories\n\n")
 		fmt.Fprintf(os.Stderr, "Visit https://github.com/aydos/gminzip for more example.\n\n")
-
 	}
-	pflag.StringVarP(&minfiles, "min", "m", "", "Files to minify (ex: -m css,html,js) (default: css,htm,html,js,json,svg,xml)")
-	pflag.StringVarP(&zipfiles, "zip", "z", "", "Files to zip (gzip) (ex: -z all) (default: copy of min option)")
+	pflag.StringVarP(&minfiles, "min", "m", "", "Files to minify (ex -m html,css) (supported: css,htm,html,js,json,svg,xml)")
+	pflag.StringVarP(&zipfiles, "zip", "z", "", "Files to zip (ex: -z html,js,swf,jpg) (ex: -z all)")
 	pflag.Int64VarP(&minsize, "size", "s", 0, "Minimum file size in bytes for zip (default: 0)")
 	pflag.Int64VarP(&maxsize, "maxsize", "x", 0, "Maximum file size in bytes for minify and zip")
 	pflag.BoolVarP(&list, "list", "l", false, "List all file extensions and count files in inputs")
@@ -93,22 +90,16 @@ func main() {
 		return
 	}
 
-	// clearify minimize file types
-	if minfiles == "" {
-		minexts = minextsall
-	} else {
-		minexts = strings.Split(minfiles, ",")
-		for i, ext := range minexts {
-			if !contains(minextsall, ext) {
-				minexts[i] = "" // delete unsupported type
-			}
+	// files to minify
+	minexts = strings.Split(minfiles, ",")
+	for i, ext := range minexts {
+		if !contains(minextsall, ext) {
+			minexts[i] = "" // delete unsupported type
 		}
 	}
 
-	// clearify gzip file types
-	if zipfiles == "" {
-		zipexts = minexts
-	} else if zipfiles == "all" {
+	// files to zip
+	if zipfiles == "all" {
 		zipextsall = true
 		zipexts = []string{""}
 	} else {
@@ -166,7 +157,7 @@ func main() {
 	if !silent && !(list && len(tasks) == 0) {
 		fmt.Printf("%6d files were processed\n", len(tasks))
 		fmt.Printf("%6d files were minified\n", mincount)
-		fmt.Printf("%6d files were zipped\n\n", zipcount)
+		fmt.Printf("%6d files were zipped\n", zipcount)
 	}
 
 	// show file extensions and file counts
@@ -176,7 +167,6 @@ func main() {
 			exts = append(exts, e)
 		}
 		sort.Strings(exts)
-		fmt.Println("File extensions & counts:")
 		for _, ext := range exts {
 			fmt.Printf("%6d %s\n", listexts[ext], ext)
 		}
@@ -251,6 +241,7 @@ func visitfiles(p string, f os.FileInfo, err error) error {
 }
 
 func gminzip(t task) bool {
+
 	if t.min {
 		mi := t.name
 		mo := mi + ".bak"
@@ -262,7 +253,7 @@ func gminzip(t task) bool {
 		defer fi.Close()
 		fo, err := os.Create(mo)
 		if err != nil {
-			fmt.Println("ERROR : Cant crate", mo)
+			fmt.Println("ERROR : Cant create", mo)
 			return false
 		}
 		defer fo.Close()
@@ -286,6 +277,7 @@ func gminzip(t task) bool {
 		}
 		mincount++
 	}
+
 	if t.zip {
 		zi := t.name
 		zo := zi + ".gz"
@@ -297,35 +289,34 @@ func gminzip(t task) bool {
 		}
 		fo, err := os.Create(zo)
 		if err != nil {
-			fmt.Println("ERROR : Cant crate", zo)
+			fmt.Println("ERROR : Cant create", zo)
 			return false
 		}
 		defer fo.Close()
-		r := bufio.NewReader(fi)
-		c, err := ioutil.ReadAll(r)
-		if err != nil {
-			fmt.Println("ERROR : Cant read content of", zi)
-			return false
-		}
-		if !brotli {
-			w, err := gzip.NewWriterLevel(fo, gzip.BestCompression)
-			defer w.Close()
+		if !brotli { // gzip
+			gz, err := gzip.NewWriterLevel(fo, gzip.BestCompression)
 			if err != nil {
-				fmt.Println("ERROR : Cant gzip", zi)
+				fmt.Println("ERROR : Cant gzip file", zi)
 				return false
 			}
-			w.Write(c)
+			defer gz.Close()
+			_, err = io.Copy(gz, fi)
+			if err != nil {
+				fmt.Println("ERROR : Cant zip file", zi)
+				return false
+			}
 		} else {
-			//w, err := brotli.NewWriter(fo)
+			//br, err := brotli.NewWriter(fo)
 		}
+
+		zipcount++
 		if delete {
 			err = os.Remove(zi)
 			if err != nil {
-				fmt.Println("ERROR : Cant delete after gzip", zi)
+				fmt.Println("ERROR : Cant delete after zip", zi)
 				return false
 			}
 		}
-		zipcount++
 	}
 	return true
 }

@@ -10,9 +10,9 @@ You may also want to look at minify-cmd project: https://github.com/tdewolff/min
 
 	Options:
 	  -m, --min
-			Files to minify (ex: -m css,html,js) (default: css,htm,html,js,json,svg,xml)
+			Files to minify (ex -m html,css) (supported: css,htm,html,js,json,svg,xml)
 	  -z, --zip
-			Files to zip (gzip) (ex: -z all) (default: copy of min option)
+			Files to zip (ex: -z html,js,swf,jpg) (ex: -z all)
 	  -s, --size
 			Minimum file size in bytes for zip (default: 0)
 	  -x, --maxsize
@@ -31,31 +31,33 @@ You may also want to look at minify-cmd project: https://github.com/tdewolff/min
 
 ## Examples
 
-Minify and zip all "css,htm,html,js,json,svg,xml" files in /var/www:
+Gminzip works with extentions and file extentions must be specified with -m and/or -z options
 
-	gminzip /var/www
+Minify and zip all "html" files in current working directory:
 
-Minify and zip all "css,html" files in /var/www:
+    gminzip -m html -z html .
+
+Minify all "css,html" files in /var/www:
 
 	gminzip -m css,html /var/www
 
-Zip every file with an extention (.jpeg, .swf, .html, ...) ("all" must be alone) but do not minify in /var/www:
+Zip every file with an extention ("all" must be alone) but do not minify in /var/www:
 
-	gminzip -m none -z all /var/www
+	gminzip -z all /var/www
 
 Minify and zip "css,html" files in /var/www/site1 and /var/www/site2 and index.html file in the current directory:
 
-	gminzip -m css,html /var/www/site1 /var/www/site2 index.html
+	gminzip -m css,html -z css,html /var/www/site1 /var/www/site2 index.html
 
-Minify "css,html" files, but zip only json files (and *.all files, not every file) in /var/www/site1:
+Minify "css,html" files, but zip only json files (and *.all files, not every file) in /var/www/site:
 
-	gminzip -m css,html -z all,json /var/www/site1
+	gminzip -m css,html -z all,json /var/www/site
 
-Minify all "css,htm,html,js,json,svg,xml" files and gzip the result if size larger than 120 bytes:
+Minify all "svg,html,xml" files (not "jpg"s) and gzip every file with extention if file size is larger than 120 bytes:
 
-	gminzip -s 120 /var/www
+	gminzip -m svg,html,xml,jpg -m all -s 120 /var/www
 
-List all extensions and file counts, minify "css,htm,html,js,json,svg,xml" files and zip "js" files:
+List all extensions and file counts and zip "js" files:
 
 	gminzip -l -z js /var/www
 
@@ -64,10 +66,9 @@ List all extensions and file counts, minify "css,htm,html,js,json,svg,xml" files
 * ALWAYS take backups
 * Only "css,htm,html,js,json,svg,xml" files can minified
 * Minifying a file overwrite the original
-* GMinZip is recursive by default
-* If no -z file specified, file types in the -m option are zipped
 * To minify the minified files may cause problems
-* May have problems with large files (use maxsize option)
+* GMinZip is recursive by default
+* No Default for -m and -z options
 
 ## TODO
 
